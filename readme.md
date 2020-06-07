@@ -1,2 +1,2 @@
 ###readme test test
-`echo what`
+`echo`
