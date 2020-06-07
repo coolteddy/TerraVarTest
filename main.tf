@@ -10,7 +10,7 @@ resource "aws_instance" "web" {
     ami = "ami-f9dd458a"
     instance_type = "t2.micro"
     key_name = "MyMacKey"
-    security_groups = ["${aws_security_group.sshac.name}"] 
+    security_groups = ["${aws_security_group.sshac.name}"]
     tags {
         Name = "HelloWorld"
     }
