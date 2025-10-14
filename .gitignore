@@ -1,2 +1,17 @@
-# Ignore the ignore #
-*.ignore*
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+crash.log
+*.log
+.terraform.lock.hcl
+# Sensitive files
+*.auto.tfvars
+*.tfvars.json
+# IDE/editor
+.vscode/
+.idea/
+# OS
+.DS_Store
