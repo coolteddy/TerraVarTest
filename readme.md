@@ -1,8 +1,9 @@
+
 # TerraVarTest
 
 This repository contains Terraform configurations for deploying a two-tier web application on AWS. It uses modular infrastructure for reusability and best practices.
 
-## What is a Two-Tier Web App?
+## Two-Tier Web App
 
 A two-tier web application architecture separates the application into two main layers:
 
@@ -15,7 +16,7 @@ A two-tier web application architecture separates the application into two main 
 
 This separation improves scalability, security, and maintainability. In this project, the web/app layer is deployed in private subnets, accessed via an Application Load Balancer in public subnets, while the data layer can be added or extended as needed.
 
-# S3 Static Website using CloudFront and ACM for SSL
+## S3 Static Website using CloudFront and ACM for SSL
 
 This app deploys a secure static website to AWS S3, served globally via CloudFront, and protected with SSL using AWS Certificate Manager (ACM).
 
@@ -35,6 +36,27 @@ This app deploys a secure static website to AWS S3, served globally via CloudFro
 3. Wait for DNS propagation and ACM validation.
 4. Access your site via your domain name (with HTTPS).
 
+## REST API with Lambda, API Gateway, and DynamoDB
+
+This project provides a complete example of deploying a serverless REST API on AWS using Terraform. It leverages:
+- **AWS Lambda** for running Python code to handle CRUD operations
+- **API Gateway** for exposing HTTP endpoints
+- **DynamoDB** for persistent, scalable NoSQL storage
+
+### Key Features
+- Modular Terraform code for infrastructure-as-code best practices
+- Automated Lambda packaging (zip) via Terraform
+- Secure IAM roles and least-privilege policies
+- CloudWatch logging for Lambda and API Gateway
+
+### Quick Usage
+1. Write your Lambda handler in `lambda_function.py`
+2. Manually zip once after clone: `zip function.zip lambda_function.py`
+3. Run `terraform init` and `terraform apply`
+4. Get the API endpoint: `terraform output -raw api_base_url`
+5. Test with curl or Postman
+
+See the module-level readme in `lambda_api_dynamo/` for deep technical details, resource-by-resource explanations, and troubleshooting.
 
 ## Recommended Structure for Multiple Environments
 
