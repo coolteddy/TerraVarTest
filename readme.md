@@ -1,5 +1,3 @@
-
-
 # TerraVarTest
 
 This repository contains Terraform configurations for deploying a two-tier web application on AWS. It uses modular infrastructure for reusability and best practices.
@@ -16,6 +14,26 @@ A two-tier web application architecture separates the application into two main 
   - Stores and manages data, usually in a database (e.g., RDS, MySQL, PostgreSQL).
 
 This separation improves scalability, security, and maintainability. In this project, the web/app layer is deployed in private subnets, accessed via an Application Load Balancer in public subnets, while the data layer can be added or extended as needed.
+
+# S3 Static Website using CloudFront and ACM for SSL
+
+This app deploys a secure static website to AWS S3, served globally via CloudFront, and protected with SSL using AWS Certificate Manager (ACM).
+
+**Features:**
+- Private S3 bucket for website files
+- CloudFront distribution for global delivery and HTTPS
+- ACM certificate for SSL (must be in us-east-1)
+- Route53 DNS integration for custom domain
+
+**How to deploy:**
+1. Update your variables (domain name and hosted zone ID).
+2. Run:
+  ```sh
+  terraform plan -var 'domain_name=www.example.com' -var 'hosted_zone_id=ZABCDEFG123456'
+  terraform apply -var 'domain_name=www.example.com' -var 'hosted_zone_id=ZABCDEFG123456'
+  ```
+3. Wait for DNS propagation and ACM validation.
+4. Access your site via your domain name (with HTTPS).
 
 
 ## Recommended Structure for Multiple Environments
