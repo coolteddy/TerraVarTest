@@ -1,4 +1,5 @@
 
+
 # TerraVarTest
 
 This repository contains Terraform configurations for deploying a two-tier web application on AWS. It uses modular infrastructure for reusability and best practices.
@@ -57,6 +58,12 @@ This project provides a complete example of deploying a serverless REST API on A
 5. Test with curl or Postman
 
 See the module-level readme in `lambda_api_dynamo/` for deep technical details, resource-by-resource explanations, and troubleshooting.
+
+## Cross-Account S3 Access Example
+
+This project includes a Terraform module for securely enabling cross-account S3 access using IAM roles and users. A user in Account B can assume a role in Account A to list and copy objects from a specific bucket/prefix.
+
+See `xaccount-s3-access/readme.md` for full instructions and resource details.
 
 ## Recommended Structure for Multiple Environments
 
