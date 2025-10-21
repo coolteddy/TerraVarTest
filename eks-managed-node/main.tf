@@ -287,4 +287,117 @@ resource "aws_eks_node_group" "default" {
   ]
 }
 
+############################
+# IRSA: OIDC provider for the cluster
+############################
 
+# OIDC issuer from EKS
+locals {
+  oidc_issuer = aws_eks_cluster.this.identity[0].oidc[0].issuer
+}
+
+data "tls_certificate" "oidc" {
+  url = local.oidc_issuer
+}
+
+############################
+# IAM: Policy + Role for the controller (IRSA)
+############################
+
+resource "aws_iam_openid_connect_provider" "eks" {
+  url = local.oidc_issuer
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.oidc.certificates[0].sha1_fingerprint]
+}
+
+# IAM policy from file (recommended official JSON)
+resource "aws_iam_policy" "alb_controller" {
+  name   = "AWSLoadBalancerControllerIAMPolicy"
+  policy = file("${path.module}/policies/aws-load-balancer-controller.json")
+}
+
+# Trust policy for IRSA (service account in kube-system namespace)
+data "aws_iam_policy_document" "alb_controller_trust" {
+  statement {
+    effect = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(local.oidc_issuer, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kube-system:aws-load-balancer-controller"]
+    }
+  }
+}
+
+resource "aws_iam_role" "alb_controller" {
+  name               = "eks-alb-controller"
+  assume_role_policy = data.aws_iam_policy_document.alb_controller_trust.json
+}
+
+resource "aws_iam_role_policy_attachment" "alb_controller_attach" {
+  role       = aws_iam_role.alb_controller.name
+  policy_arn = aws_iam_policy.alb_controller.arn
+}
+
+############################
+# Kubernetes SA + Helm release (controller)
+############################
+
+# ServiceAccount that will be bound to the IAM role via IRSA
+resource "kubernetes_service_account" "alb_sa" {
+  metadata {
+    name      = "aws-load-balancer-controller"
+    namespace = "kube-system"
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.alb_controller.arn
+    }
+    labels = {
+      "app.kubernetes.io/name" = "aws-load-balancer-controller"
+    }
+  }
+  automount_service_account_token = true
+}
+
+# Install ALB Controller via Helm (uses the existing SA)
+resource "helm_release" "alb_controller" {
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = "1.7.2" # pick a recent chart version
+
+  # Don't create the SA; we provide our own with IRSA annotation
+  set = [
+    {
+      name  = "serviceAccount.create"
+      value = "false"
+    },
+    {
+      name  = "serviceAccount.name"
+      value = kubernetes_service_account.alb_sa.metadata[0].name
+    },
+    {
+      name  = "clusterName"
+      value = aws_eks_cluster.this.name
+    }
+]
+
+  # If using private subnets only for nodes, you typically don't need vpcId here.
+  # Uncomment if the chart asks for it in your environment:
+  # set {
+  #   name  = "vpcId"
+  #   value = aws_vpc.this.id
+  # }
+
+  depends_on = [
+    aws_eks_node_group.default,
+    aws_iam_role_policy_attachment.alb_controller_attach,
+    aws_eks_cluster.this
+  ]
+}
