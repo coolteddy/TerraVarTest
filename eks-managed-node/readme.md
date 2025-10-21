@@ -75,8 +75,18 @@ This module provisions an AWS EKS cluster with managed node groups using Terrafo
 - For production, consider multi-AZ NAT gateways and custom security groups.
 - For add-on management, see AWS EKS documentation.
 
+## Helm ALB Controller Installation: Manual Step
 
-# NGINX Quick Test Script
+If you see an error about locating the Helm chart ("no cached repo found"), run these commands before applying Terraform:
+
+```bash
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+```
+
+This ensures the chart repository is available for Terraform's Helm provider.
+
+## NGINX Quick Test Script
 
 This repo includes `nginx_install.sh`, a helper script to quickly deploy an NGINX test workload to your EKS cluster and expose it via a public LoadBalancer service.
 
