@@ -435,7 +435,6 @@ resource "helm_release" "alb_controller" {
 ############################
 # IRSA for VPC CNI Plugin (aws-node)
 ############################
-
 # 1. IAM Policy for VPC CNI
 resource "aws_iam_policy" "vpc_cni" {
   name   = "AmazonEKS_CNI_Policy"

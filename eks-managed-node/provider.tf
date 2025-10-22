@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0" 
     }
+     helm = {
+      source  = "hashicorp/helm"
+      version = ">= 2.0.0"
+    }
   }
 }
 
@@ -26,18 +30,10 @@ provider "kubernetes" {
   token                  = data.aws_eks_cluster_auth.this.token
 }
 
-# provider "helm" {
-#   kubernetes_host                   = aws_eks_cluster.this.endpoint
-#   kubernetes_cluster_ca_certificate = base64decode(aws_eks_cluster.this.certificate_authority[0].data)
-#   kubernetes_token                  = data.aws_eks_cluster_auth.this.token
-# }
-
-# provider "helm" {
-#   # No arguments needed; uses default Kubernetes provider
-# }
-
 provider "helm" {
   kubernetes = {
-    config_path = "~/.kube/config"
+    host                   = aws_eks_cluster.this.endpoint
+    cluster_ca_certificate = base64decode(aws_eks_cluster.this.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.this.token
   }
 }
