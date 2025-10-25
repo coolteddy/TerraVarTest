@@ -264,7 +264,7 @@ resource "aws_iam_role_policy_attachment" "node_AmazonEKS_CNI_Policy" {
 resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   role_arn = aws_iam_role.cluster.arn
-  version  = "1.29"
+  version  = "1.34"
 
   vpc_config {
     endpoint_public_access  = true
@@ -288,6 +288,29 @@ resource "aws_eks_cluster" "this" {
 ############################
 # Managed Node Group
 ############################
+
+# to allow the port 80 from NLB/ALB to the nodes
+# resource "aws_security_group" "node_sg" {
+#   name   = "node-group-sg"
+#   vpc_id = aws_vpc.this.id
+#   tags = merge(local.tags, { Name = "node-group_custom_sg" })
+# }
+
+# resource "aws_vpc_security_group_ingress_rule" "node_sg_ingress_http_from_alb" {
+#   security_group_id        = aws_security_group.node_sg.id
+#   description              = "HTTP from ALB/NLB"
+#   ip_protocol              = "tcp"
+#   from_port                = 80
+#   to_port                  = 80
+# }
+
+# resource "aws_vpc_security_group_egress_rule" "node_sg_egress_all" {
+#   security_group_id = aws_security_group.node_sg.id
+#   ip_protocol       = "-1" # Represents all protocols.
+#   cidr_ipv4         = "0.0.0.0/0"
+# }
+
+
 resource "aws_eks_node_group" "default" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "ng-default"
@@ -295,6 +318,12 @@ resource "aws_eks_node_group" "default" {
   subnet_ids      = [aws_subnet.private_a.id, aws_subnet.private_b.id]
   capacity_type   = "ON_DEMAND"
   instance_types  = [var.node_instance_type]
+
+  # only enable if you created the custom SG above
+  # remote_access {
+  #   # Add your custom security group here
+  #   source_security_group_ids = [aws_security_group.node_sg.id]
+  # } 
 
   scaling_config {
     desired_size = var.desired_size
@@ -304,7 +333,7 @@ resource "aws_eks_node_group" "default" {
 
   update_config { max_unavailable = 1 }
 
-  ami_type = "AL2_x86_64" # Amazon Linux 2
+  ami_type = "AL2023_x86_64_STANDARD" # Amazon Linux 2
 
   tags = local.tags
 
@@ -342,7 +371,7 @@ resource "aws_iam_openid_connect_provider" "eks" {
 # IAM policy from file (recommended official JSON)
 resource "aws_iam_policy" "alb_controller" {
   name   = "AWSLoadBalancerControllerIAMPolicy"
-  policy = file("${path.module}/policies/aws-load-balancer-controller.json")
+  policy = file("${path.module}/policies/iam-policy-alb-controller.json")
 }
 
 # Trust policy for IRSA (service account in kube-system namespace)
@@ -399,7 +428,7 @@ resource "helm_release" "alb_controller" {
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
   namespace  = "kube-system"
-  version    = "1.7.2" # pick a recent chart version
+  version    = "1.14.1" # recent chart version
 
   # Don't create the SA; we provide our own with IRSA annotation
   set = [
@@ -414,15 +443,15 @@ resource "helm_release" "alb_controller" {
     {
       name  = "clusterName"
       value = aws_eks_cluster.this.name
-    }
+    },
+    # metadata access is blocked or unavailable in new versions
+    # The node AMI or configuration disables or restricts IMDS (Instance Metadata Service) 
+    # access (e.g., IMDSv2 enforcement, hop limit settings)
+    {
+      name  = "vpcId"
+      value = aws_vpc.this.id
+   }
 ]
-
-  # If using private subnets only for nodes, you typically don't need vpcId here.
-  # Uncomment if the chart asks for it in your environment:
-  # set {
-  #   name  = "vpcId"
-  #   value = aws_vpc.this.id
-  # }
 
   depends_on = [
     aws_eks_node_group.default,
@@ -520,74 +549,3 @@ resource "aws_iam_role_policy_attachment" "vpc_cni_attach" {
 #   eks.amazonaws.com/role-arn=<paste-the-arn-here> --overwrite
 
 
-############################
-# IRSA Example: Pod Access to S3 access
-############################
-
-# # 1. IAM Policy for S3 access (replace bucket name as needed)
-# resource "aws_iam_policy" "s3_access" {
-#   name        = "eks-s3-access-policy"
-#   description = "Allow pod to access specific S3 bucket"
-#   policy      = <<EOF
-# {
-#   "Version": "2012-10-17",
-#   "Statement": [
-#     {
-#       "Effect": "Allow",
-#       "Action": ["s3:GetObject", "s3:ListBucket"],
-#       "Resource": [
-#         "arn:aws:s3:::your-bucket-name",
-#         "arn:aws:s3:::your-bucket-name/*"
-#       ]
-#     }
-#   ]
-# }
-# EOF
-# }
-
-# # 2. Trust Policy for IRSA (service account in app namespace)
-# data "aws_iam_policy_document" "s3_access_trust" {
-#   statement {
-#     effect = "Allow"
-#     actions = ["sts:AssumeRoleWithWebIdentity"]
-#     principals {
-#       type        = "Federated"
-#       identifiers = [aws_iam_openid_connect_provider.eks.arn]
-#     }
-#     condition {
-#       test     = "StringEquals"
-#       variable = "${replace(local.oidc_issuer, "https://", "")}:sub"
-#       values   = ["system:serviceaccount:app:s3-access-sa"]
-#     }
-#   }
-# }
-
-# # 3. IAM Role for S3 access
-# resource "aws_iam_role" "s3_access" {
-#   name               = "eks-s3-access-role"
-#   assume_role_policy = data.aws_iam_policy_document.s3_access_trust.json
-#   tags = local.tags
-# }
-
-# # 4. Attach Policy to Role
-# resource "aws_iam_role_policy_attachment" "s3_access_attach" {
-#   role       = aws_iam_role.s3_access.name
-#   policy_arn = aws_iam_policy.s3_access.arn
-# }
-
-# # 5. Annotate ServiceAccount for pod (namespace: app)
-# resource "kubernetes_service_account" "s3_access_sa" {
-#   metadata {
-#     name      = "s3-access-sa"
-#     namespace = "app"
-#     annotations = {
-#       "eks.amazonaws.com/role-arn" = aws_iam_role.s3_access.arn
-#     }
-#     labels = {
-#       "app.kubernetes.io/name" = "s3-access"
-#     }
-#   }
-#   automount_service_account_token = true
-# }
-
-# To use: Set your pod/deployment spec to use serviceAccountName: s3-access-sa in the app namespace.

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  # if no ALB Controller, default is Classic LB. Not require annotations for CLB)
+  # if with ALB Controller, default is NLB - Not require annotations
+  # following annotations without internet-facing makes it internal NLB
+  # following annotations makes it Internet facing NLB (ALB Controller required
+  # https://docs.aws.amazon.com/eks/latest/userguide/network-load-balancing.html#network-load-balancing-service-sample-manifest
+#   annotations:
+#     service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+#     service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+spec:
+#   commented for ClusterIP service, uncomment for LoadBalancer service
+#   type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: web

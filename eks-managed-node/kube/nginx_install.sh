@@ -40,13 +40,16 @@ apiVersion: v1
 kind: Service
 metadata:
   name: web
+  # annotations:
+  #   service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+  #   service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
 spec:
   type: LoadBalancer
-  selector:
-    app: web
   ports:
   - port: 80
     targetPort: 80
+  selector:
+    app: web
 YAML
 
 kubectl apply -f nginx.yaml
