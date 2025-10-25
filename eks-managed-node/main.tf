@@ -289,28 +289,6 @@ resource "aws_eks_cluster" "this" {
 # Managed Node Group
 ############################
 
-# to allow the port 80 from NLB/ALB to the nodes
-# resource "aws_security_group" "node_sg" {
-#   name   = "node-group-sg"
-#   vpc_id = aws_vpc.this.id
-#   tags = merge(local.tags, { Name = "node-group_custom_sg" })
-# }
-
-# resource "aws_vpc_security_group_ingress_rule" "node_sg_ingress_http_from_alb" {
-#   security_group_id        = aws_security_group.node_sg.id
-#   description              = "HTTP from ALB/NLB"
-#   ip_protocol              = "tcp"
-#   from_port                = 80
-#   to_port                  = 80
-# }
-
-# resource "aws_vpc_security_group_egress_rule" "node_sg_egress_all" {
-#   security_group_id = aws_security_group.node_sg.id
-#   ip_protocol       = "-1" # Represents all protocols.
-#   cidr_ipv4         = "0.0.0.0/0"
-# }
-
-
 resource "aws_eks_node_group" "default" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "ng-default"
@@ -318,12 +296,6 @@ resource "aws_eks_node_group" "default" {
   subnet_ids      = [aws_subnet.private_a.id, aws_subnet.private_b.id]
   capacity_type   = "ON_DEMAND"
   instance_types  = [var.node_instance_type]
-
-  # only enable if you created the custom SG above
-  # remote_access {
-  #   # Add your custom security group here
-  #   source_security_group_ids = [aws_security_group.node_sg.id]
-  # } 
 
   scaling_config {
     desired_size = var.desired_size
@@ -333,7 +305,7 @@ resource "aws_eks_node_group" "default" {
 
   update_config { max_unavailable = 1 }
 
-  ami_type = "AL2023_x86_64_STANDARD" # Amazon Linux 2
+  ami_type = "AL2023_x86_64_STANDARD" # latest Amazon Linux 2023 AMI
 
   tags = local.tags
 
@@ -555,4 +527,3 @@ resource "null_resource" "annotate_aws_node_irsa" {
   }
   depends_on = [aws_eks_cluster.this, aws_iam_role.vpc_cni]
 }
-
