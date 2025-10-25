@@ -60,6 +60,25 @@ This module provisions an AWS EKS cluster with managed node groups using Terrafo
 - `aws_iam_role.vpc_cni`: IAM role for VPC CNI plugin.
 - `aws_iam_role_policy_attachment.vpc_cni_attach`: Attaches policy to role.
 - Service account `aws-node` (created by EKS) must be annotated manually for IRSA.
+- to get IRSA role
+
+To check your IRSA role ARN from the AWS Console:
+
+1. Go to the AWS Console and open the IAM service.
+2. Click "Roles" in the left sidebar.
+3. Search for the role name you used in Terraform (e.g., eks-vpc-cni-irsa).
+4. Click the role in the list.
+5. At the top of the role details page, you’ll see the "Role ARN" field.
+Example:
+`arn:aws:iam::<account-id>:role/eks-vpc-cni-irsa`
+
+```bash
+kubectl get serviceaccount aws-node -n kube-system -o yaml
+
+kubectl annotate serviceaccount aws-node \
+  -n kube-system \
+  eks.amazonaws.com/role-arn=<paste-the-arn-here> --overwrite
+```
 
 ### 11. Example: Pod Access to S3 via IRSA
 - Example resources (commented): IAM policy, trust policy, IAM role, role attachment, and service account for a pod needing S3 access.
@@ -139,17 +158,26 @@ If your colleague only needs to deploy applications to EKS (using kubectl/Helm),
 - Select "Programmatic access" only.
 - No need to attach any AWS policies except basic EKS access (for `aws eks update-kubeconfig`).
 
-### 2. Map IAM User to Kubernetes RBAC
+### 2. Map IAM User to Kubernetes RBAC (use mapRoles for large organisation)
 - Edit the EKS `aws-auth` ConfigMap:
 	```sh
 	kubectl edit configmap aws-auth -n kube-system
 	```
 - Add under `mapUsers`:
 	```yaml
+	mapUsers: |
 	- userarn: arn:aws:iam::<account-id>:user/<username>
-		username: <username>
-		groups:
-			- eks-deployer
+	  username: <username>
+	  groups:
+		- eks-deployer
+	```
+- Add under `mapRoles`:
+	```yaml
+	mapRoles: |
+	- rolearn: arn:aws:iam::<account-id>:role/<role-name>
+	  username: <role-name>
+	  groups:
+		- eks-deployer
 	```
 
 ### 3. Create RBAC Role and Binding

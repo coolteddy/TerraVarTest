@@ -528,7 +528,7 @@ resource "aws_iam_role_policy_attachment" "vpc_cni_attach" {
 }
 
 # 5. Annotate aws-node ServiceAccount (Kubernetes)
-# looks like already created by EKS or Helm chart
+# looks like already created by EKS
 # resource "kubernetes_service_account" "aws_node" {
 #   metadata {
 #     name      = "aws-node"
@@ -544,8 +544,15 @@ resource "aws_iam_role_policy_attachment" "vpc_cni_attach" {
 # }
 
 # manually run this after commented out aws-node service account
+# see next null_resource
 # kubectl annotate serviceaccount aws-node \
 #   -n kube-system \
 #   eks.amazonaws.com/role-arn=<paste-the-arn-here> --overwrite
 
+resource "null_resource" "annotate_aws_node_irsa" {
+  provisioner "local-exec" {
+    command = "kubectl annotate serviceaccount aws-node -n kube-system eks.amazonaws.com/role-arn=${aws_iam_role.vpc_cni.arn} --overwrite"
+  }
+  depends_on = [aws_eks_cluster.this, aws_iam_role.vpc_cni]
+}
 
