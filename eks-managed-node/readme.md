@@ -195,4 +195,39 @@ They can now use `kubectl`/Helm to deploy apps, but cannot manage nodes, network
 - For most users, RBAC is sufficient for application deployment.
 ---
 
-For troubleshooting, check CloudWatch logs, AWS console, and Terraform output. For more details, see the comments in `main.tf`.
+## Kubernetes Service & Ingress: AWS EKS Load Balancer Behavior and Best Practices
+
+### Service of type LoadBalancer
+- **No ALB Controller installed:**
+  - Default is Classic Load Balancer (CLB).
+  - No annotations required for CLB.
+- **ALB Controller installed:**
+  - Default is Network Load Balancer (NLB).
+  - No annotations required for NLB, but you can use annotations for advanced control.
+- **Annotations for NLB:**
+  - `service.beta.kubernetes.io/aws-load-balancer-type: "nlb"` (explicitly requests NLB)
+  - `service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"` (makes NLB public)
+  - Omitting `internet-facing` or setting `service.beta.kubernetes.io/aws-load-balancer-internal: "true"` makes NLB internal.
+- **References:**
+  - [AWS EKS Network Load Balancing](https://docs.aws.amazon.com/eks/latest/userguide/network-load-balancing.html#network-load-balancing-service-sample-manifest)
+
+### Ingress (ALB Controller)
+- **Ingress resource creates ALB (Application Load Balancer) when using AWS Load Balancer Controller.**
+- **Key annotations:**
+  - `alb.ingress.kubernetes.io/scheme: internet-facing` (public ALB)
+  - `alb.ingress.kubernetes.io/target-type: ip` (recommended for pod-level routing; allows ClusterIP backend)
+- **IngressClass:**
+  - Use `spec.ingressClassName: alb` instead of deprecated `kubernetes.io/ingress.class` annotation.
+- **Backend Service:**
+  - For ALB Ingress, backend Service can be ClusterIP (recommended).
+  - For NLB Ingress, backend Service must be NodePort or LoadBalancer if using Instance target type.
+- **References:**
+  - [AWS Load Balancer Controller Ingress Guide](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.6/guide/ingress/)
+
+### Common Findings & Troubleshooting
+- If NLB is created as internal, check subnet tags and annotations.
+- For public NLB, ensure public subnets are tagged `kubernetes.io/role/elb = 1` and use `internet-facing` annotation.
+- For ALB Ingress, always use `alb.ingress.kubernetes.io/target-type: ip` if backend is ClusterIP.
+- Deprecated annotations should be replaced with their respective spec fields (e.g., `spec.ingressClassName`).
+
+---
